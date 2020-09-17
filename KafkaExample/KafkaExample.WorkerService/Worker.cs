@@ -29,7 +29,7 @@ namespace KafkaExample.WorkerService
 				GroupId = options.GroupId ?? Guid.NewGuid().ToString(),
 				BootstrapServers = options.BootstrapServers,
 				AutoOffsetReset = AutoOffsetReset.Earliest,
-				EnableAutoCommit = true
+				EnableAutoCommit = false
 			};
 
 			var builder = new ConsumerBuilder<Ignore, string>(config);
@@ -44,18 +44,17 @@ namespace KafkaExample.WorkerService
 			{
 				var result = _consumer.Consume(stoppingToken);
 
-				if (!result.IsPartitionEOF)
+				var @event = JsonSerializer.Deserialize<CreateNewsEvent>(result.Message.Value);
+
+				var news = new News
 				{
-					var @event = JsonSerializer.Deserialize<CreateNewsEvent>(result.Message.Value);
+					Name = @event.Name,
+					Description = @event.Description
+				};
 
-					var news = new News
-					{
-						Name = @event.Name,
-						Description = @event.Description
-					};
+				await _newsRepository.ReplaceNewsAsync(news);
 
-					await _newsRepository.ReplaceNewsAsync(news);
-				}
+				_consumer.Commit();
 			}
 		}
 
